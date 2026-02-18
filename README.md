@@ -1,23 +1,23 @@
-@echo off
-:: Quick Start - Rawson Properties Tracker
-:: Just double-click this file to start the system!
-
-echo ========================================
-echo   RAWSON PROPERTIES - AGENT TRACKER
-echo ========================================
-echo.
-echo Starting server...
-echo.
-echo The browser will open automatically.
-echo Login at: http://localhost:3000
-echo.
-echo Press Ctrl+C to stop the server
-echo ========================================
-echo.
-
-:: Open browser after 2 seconds
-timeout /t 2 /nobreak >nul
-start http://localhost:3000
-
-:: Start the server
-npm start
+{
+  "name": "rawson-tracker-cloud",
+  "version": "2.0.0",
+  "description": "Rawson Properties Agent Activity Tracker",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js"
+  },
+  "keywords": ["real-estate", "tracker"],
+  "author": "Rawson Properties",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "better-sqlite3": "^11.0.0",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
