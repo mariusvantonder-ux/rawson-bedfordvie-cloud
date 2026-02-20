@@ -558,6 +558,150 @@ app.get('/init-activities', (req, res) => {
     }
 });
 
+// Password reset page
+app.get('/reset-password', (req, res) => {
+    res.send(`
+        <html>
+        <head>
+            <title>Reset Password</title>
+            <style>
+                body { font-family: Arial; max-width: 500px; margin: 50px auto; padding: 20px; background: #FFD700; }
+                .card { background: white; border-radius: 10px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+                h2 { color: #000; margin-bottom: 20px; }
+                .form-group { margin-bottom: 15px; }
+                label { display: block; font-weight: 600; margin-bottom: 5px; color: #333; }
+                input, select { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; }
+                input:focus, select:focus { outline: none; border-color: #FFD700; }
+                .btn { width: 100%; padding: 12px; background: #000; color: #FFD700; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+                .btn:hover { background: #333; }
+                .password-wrapper { position: relative; }
+                .password-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; }
+                .message { padding: 12px; border-radius: 6px; margin-bottom: 15px; display: none; }
+                .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+                .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h2>🔐 Reset Password</h2>
+                <div id="message" class="message"></div>
+                <form id="resetForm">
+                    <div class="form-group">
+                        <label>Select User</label>
+                        <select id="username" required>
+                            <option value="">-- Choose User --</option>
+                            <option value="marius-office">Marius Office (Admin)</option>
+                            <option value="marius-personal">Marius Personal (Agent)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="newPassword" required minlength="6" style="padding-right: 40px;">
+                            <button type="button" class="password-toggle" onclick="togglePassword()">👁️</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <input type="password" id="confirmPassword" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn">Reset Password</button>
+                </form>
+                <p style="text-align: center; margin-top: 20px;">
+                    <a href="/" style="color: #000;">← Back to Login</a>
+                </p>
+            </div>
+
+            <script>
+                function togglePassword() {
+                    const input = document.getElementById('newPassword');
+                    const btn = event.target;
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        btn.textContent = '🙈';
+                    } else {
+                        input.type = 'password';
+                        btn.textContent = '👁️';
+                    }
+                }
+
+                document.getElementById('resetForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const username = document.getElementById('username').value;
+                    const newPassword = document.getElementById('newPassword').value;
+                    const confirmPassword = document.getElementById('confirmPassword').value;
+                    const messageDiv = document.getElementById('message');
+
+                    if (newPassword !== confirmPassword) {
+                        messageDiv.className = 'message error';
+                        messageDiv.textContent = 'Passwords do not match!';
+                        messageDiv.style.display = 'block';
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('/do-reset-password', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username, newPassword })
+                        });
+
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            messageDiv.className = 'message success';
+                            messageDiv.textContent = '✅ Password reset successfully! You can now login.';
+                            messageDiv.style.display = 'block';
+                            document.getElementById('resetForm').reset();
+                            setTimeout(() => {
+                                window.location.href = '/';
+                            }, 2000);
+                        } else {
+                            messageDiv.className = 'message error';
+                            messageDiv.textContent = '❌ ' + (data.error || 'Reset failed');
+                            messageDiv.style.display = 'block';
+                        }
+                    } catch (error) {
+                        messageDiv.className = 'message error';
+                        messageDiv.textContent = '❌ Error: ' + error.message;
+                        messageDiv.style.display = 'block';
+                    }
+                });
+            </script>
+        </body>
+        </html>
+    `);
+});
+
+// Process password reset
+app.post('/do-reset-password', express.json(), (req, res) => {
+    try {
+        const { username, newPassword } = req.body;
+
+        if (!username || !newPassword) {
+            return res.status(400).json({ error: 'Username and password required' });
+        }
+
+        // Check if user exists
+        const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Hash new password
+        const passwordHash = bcrypt.hashSync(newPassword, 10);
+
+        // Update password
+        db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(passwordHash, username);
+
+        res.json({ success: true, message: 'Password updated successfully' });
+    } catch (error) {
+        console.error('Password reset error:', error);
+        res.status(500).json({ error: 'Reset failed: ' + error.message });
+    }
+});
+
 // Serve index.html for root route
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
