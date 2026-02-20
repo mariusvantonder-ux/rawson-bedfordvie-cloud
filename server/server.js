@@ -350,6 +350,101 @@ app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// ===== ONE-TIME SETUP ENDPOINT =====
+// Access at: https://rawson-tracker.onrender.com/setup-admin
+app.get('/setup-admin', async (req, res) => {
+    try {
+        // Check if admin already exists
+        const existingAdmin = db.prepare('SELECT * FROM users WHERE username = ?').get('marius-office');
+        
+        if (existingAdmin) {
+            return res.send(`
+                <html>
+                <head><title>Setup Complete</title></head>
+                <body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;">
+                    <h2>✅ Admin Account Already Exists</h2>
+                    <p>Username: <strong>marius-office</strong></p>
+                    <p>Your accounts are already set up!</p>
+                    <p><a href="/" style="background:#000;color:#FFD700;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:10px;">Go to Login</a></p>
+                </body>
+                </html>
+            `);
+        }
+
+        // Create office admin account
+        const officePasswordHash = bcrypt.hashSync('Rawson2024!', 10);
+        db.prepare(`
+            INSERT INTO users (username, email, password_hash, full_name, role)
+            VALUES (?, ?, ?, ?, ?)
+        `).run('marius-office', 'marius@rawsonbedfordview.co.za', officePasswordHash, 'Marius van Tonder - Office', 'admin');
+
+        // Create personal agent account
+        const personalPasswordHash = bcrypt.hashSync('Marius2024!', 10);
+        db.prepare(`
+            INSERT INTO users (username, email, password_hash, full_name, role)
+            VALUES (?, ?, ?, ?, ?)
+        `).run('marius-personal', 'marius.personal@rawsonbedfordview.co.za', personalPasswordHash, 'Marius van Tonder - Personal', 'agent');
+
+        res.send(`
+            <html>
+            <head>
+                <title>Accounts Created</title>
+                <style>
+                    body { font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px; background: #FFD700; }
+                    .card { background: white; border-radius: 10px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                    h2 { color: #000; }
+                    .cred { background: #f0f0f0; padding: 10px; border-radius: 5px; margin: 10px 0; }
+                    .warning { background: #fff3cd; border: 2px solid #ffc107; padding: 15px; border-radius: 8px; margin: 20px 0; }
+                    .btn { display: inline-block; background: #000; color: #FFD700; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; }
+                </style>
+            </head>
+            <body>
+                <h1>🎉 Accounts Created Successfully!</h1>
+                
+                <div class="card">
+                    <h2>🏢 Office Account (Admin)</h2>
+                    <div class="cred">
+                        <strong>Username:</strong> marius-office<br>
+                        <strong>Password:</strong> Rawson2024!<br>
+                        <strong>Role:</strong> Admin
+                    </div>
+                    <p>Use this to view all agents, office reports, and manage the system.</p>
+                </div>
+
+                <div class="card">
+                    <h2>👤 Personal Account (Agent)</h2>
+                    <div class="cred">
+                        <strong>Username:</strong> marius-personal<br>
+                        <strong>Password:</strong> Marius2024!<br>
+                        <strong>Role:</strong> Agent
+                    </div>
+                    <p>Use this for your personal activity tracking.</p>
+                </div>
+
+                <div class="warning">
+                    <strong>⚠️ IMPORTANT:</strong> Change these passwords immediately after your first login!<br>
+                    Go to "Manage Agents" → Click user → "Change Password"
+                </div>
+
+                <a href="/" class="btn">Go to Login Page</a>
+            </body>
+            </html>
+        `);
+
+    } catch (error) {
+        console.error('Setup error:', error);
+        res.status(500).send(`
+            <html>
+            <body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;">
+                <h2>❌ Setup Failed</h2>
+                <p>Error: ${error.message}</p>
+                <p><a href="/setup-admin">Try Again</a></p>
+            </body>
+            </html>
+        `);
+    }
+});
+
 // Serve index.html for root route
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
