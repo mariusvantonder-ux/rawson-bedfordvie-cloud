@@ -837,6 +837,66 @@ app.get('/verify-password', (req, res) => {
     `);
 });
 
+// Debug all API endpoints
+app.get('/debug-api', authMiddleware, (req, res) => {
+    try {
+        const results = {};
+        
+        // Test 1: Get user info
+        results.currentUser = req.user;
+        
+        // Test 2: Get activities
+        try {
+            const activities = db.prepare('SELECT * FROM activities_master LIMIT 5').all();
+            results.activities = {
+                success: true,
+                count: activities.length,
+                sample: activities
+            };
+        } catch (err) {
+            results.activities = {
+                success: false,
+                error: err.message
+            };
+        }
+        
+        // Test 3: Get users
+        try {
+            const users = db.prepare('SELECT username, full_name, role FROM users').all();
+            results.users = {
+                success: true,
+                count: users.length,
+                list: users
+            };
+        } catch (err) {
+            results.users = {
+                success: false,
+                error: err.message
+            };
+        }
+        
+        // Test 4: Database tables
+        try {
+            const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+            results.tables = tables.map(t => t.name);
+        } catch (err) {
+            results.tables = { error: err.message };
+        }
+        
+        // Test 5: Activities columns
+        try {
+            const columns = db.prepare("PRAGMA table_info(activities_master)").all();
+            results.activityColumns = columns.map(c => c.name);
+        } catch (err) {
+            results.activityColumns = { error: err.message };
+        }
+        
+        res.json(results);
+    } catch (error) {
+        res.status(500).json({ error: error.message, stack: error.stack });
+    }
+});
+
 // Serve index.html for root route
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
