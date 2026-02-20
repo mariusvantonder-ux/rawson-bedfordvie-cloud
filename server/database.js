@@ -40,7 +40,7 @@ db.exec(`
     -- Activities master list
     CREATE TABLE IF NOT EXISTS activities_master (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
+        activity_name TEXT UNIQUE NOT NULL,
         category TEXT NOT NULL,
         is_active BOOLEAN DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -160,7 +160,7 @@ const defaultActivities = [
 ];
 
 const insertActivity = db.prepare(`
-    INSERT OR IGNORE INTO activities_master (name, category) VALUES (?, ?)
+    INSERT OR IGNORE INTO activities_master (activity_name, category) VALUES (?, ?)
 `);
 
 defaultActivities.forEach(activity => {
