@@ -3,13 +3,19 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 const fs = require('fs');
 
+// Use /var/data for persistent storage on Render, fallback to local for development
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
+const dbDir = isProduction ? '/var/data' : path.join(__dirname, '../database');
+
 // Ensure database directory exists
-const dbDir = path.join(__dirname, '../database');
 if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const db = new Database(path.join(dbDir, 'rawson-tracker.db'));
+const dbPath = path.join(dbDir, 'rawson-tracker.db');
+console.log('📁 Database path:', dbPath);
+
+const db = new Database(dbPath);
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
