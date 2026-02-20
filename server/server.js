@@ -366,6 +366,7 @@ app.get('/setup-admin', async (req, res) => {
                     <p>Username: <strong>marius-office</strong></p>
                     <p>Your accounts are already set up!</p>
                     <p><a href="/" style="background:#000;color:#FFD700;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:10px;">Go to Login</a></p>
+                    <p><a href="/check-users" style="background:#666;color:#fff;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:10px;">Check All Users</a></p>
                 </body>
                 </html>
             `);
@@ -442,6 +443,118 @@ app.get('/setup-admin', async (req, res) => {
             </body>
             </html>
         `);
+    }
+});
+
+// Debug endpoint to check users
+app.get('/check-users', (req, res) => {
+    try {
+        const users = db.prepare('SELECT username, email, full_name, role, is_active FROM users').all();
+        
+        let userList = users.map(u => `
+            <tr>
+                <td>${u.username}</td>
+                <td>${u.full_name}</td>
+                <td>${u.role}</td>
+                <td>${u.email}</td>
+                <td>${u.is_active ? '✅' : '❌'}</td>
+            </tr>
+        `).join('');
+
+        res.send(`
+            <html>
+            <head><title>User List</title></head>
+            <body style="font-family: Arial; max-width: 800px; margin: 50px auto; padding: 20px;">
+                <h2>👥 All Users in Database</h2>
+                <table style="width:100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #000; color: #FFD700;">
+                            <th style="padding: 10px; text-align: left;">Username</th>
+                            <th style="padding: 10px; text-align: left;">Full Name</th>
+                            <th style="padding: 10px; text-align: left;">Role</th>
+                            <th style="padding: 10px; text-align: left;">Email</th>
+                            <th style="padding: 10px; text-align: left;">Active</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${userList || '<tr><td colspan="5" style="text-align:center;padding:20px;">No users found</td></tr>'}
+                    </tbody>
+                </table>
+                <p style="margin-top: 20px;">
+                    <a href="/" style="background:#000;color:#FFD700;padding:10px 20px;text-decoration:none;border-radius:5px;margin-right:10px;">Go to Login</a>
+                    <a href="/init-activities" style="background:#28a745;color:#fff;padding:10px 20px;text-decoration:none;border-radius:5px;">Initialize Activities</a>
+                </p>
+            </body>
+            </html>
+        `);
+    } catch (error) {
+        res.status(500).send('Error: ' + error.message);
+    }
+});
+
+// Initialize activities if missing
+app.get('/init-activities', (req, res) => {
+    try {
+        // Check if activities already exist
+        const count = db.prepare('SELECT COUNT(*) as count FROM activities_master').get();
+        
+        if (count.count > 0) {
+            return res.send(`
+                <html>
+                <body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;">
+                    <h2>✅ Activities Already Initialized</h2>
+                    <p>Found ${count.count} activities in database.</p>
+                    <p><a href="/" style="background:#000;color:#FFD700;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:10px;">Go to Login</a></p>
+                </body>
+                </html>
+            `);
+        }
+
+        // Insert default activities
+        const defaultActivities = [
+            ['Cold Calling', 'Tele-canvassing'],
+            ['Cold Calling', 'Door Knocks'],
+            ['Cold Calling', '360 Activity Drops'],
+            ['Branding', 'Neighbourhood Drops'],
+            ['Branding', 'Promotional Items Distributed'],
+            ['Branding', 'Robot Blitz'],
+            ['Branding', 'Community Events'],
+            ['Branding', 'Rally Participation'],
+            ['Branding', 'Social Media Postings'],
+            ['CRM', 'Contacts Loaded'],
+            ['CRM', 'Ongoing Touchpoints'],
+            ['Sales & Rental', 'Valuations'],
+            ['Sales & Rental', 'Sole Mandates'],
+            ['Sales & Rental', 'Other Mandates'],
+            ['Sales & Rental', 'Show House'],
+            ['Sales & Rental', 'Buyers Loaded'],
+            ['Sales & Rental', 'Viewings'],
+            ['Sales & Rental', 'OTP / Lease Applications'],
+            ['Sales & Rental', 'Agreement of Sale & Lease'],
+            ['Sales & Rental', 'AOS to Bond Originator'],
+            ['Sales & Rental', 'Referral Sent'],
+            ['Sales & Rental', 'Referral Received'],
+            ['Sales & Rental', 'Training Session']
+        ];
+
+        const insertActivity = db.prepare('INSERT INTO activities_master (category, activity_name) VALUES (?, ?)');
+        defaultActivities.forEach(([category, name]) => {
+            insertActivity.run(category, name);
+        });
+
+        res.send(`
+            <html>
+            <body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px; background: #FFD700;">
+                <div style="background: white; border-radius: 10px; padding: 30px;">
+                    <h2>🎉 Activities Initialized!</h2>
+                    <p>Successfully added ${defaultActivities.length} default activities to the database.</p>
+                    <p><a href="/" style="background:#000;color:#FFD700;padding:12px 24px;text-decoration:none;border-radius:5px;display:inline-block;margin-top:15px;font-weight:bold;">Go to Login</a></p>
+                </div>
+            </body>
+            </html>
+        `);
+    } catch (error) {
+        res.status(500).send('Error: ' + error.message);
     }
 });
 
