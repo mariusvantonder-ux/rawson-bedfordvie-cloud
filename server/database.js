@@ -3,9 +3,8 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 const fs = require('fs');
 
-// Use /var/data for persistent storage on Render, fallback to local for development
-const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
-const dbDir = isProduction ? '/var/data' : path.join(__dirname, '../database');
+// Use local directory - will reset on Render restart but that's okay
+const dbDir = path.join(__dirname, '../database');
 
 // Ensure database directory exists
 if (!fs.existsSync(dbDir)) {
@@ -16,6 +15,9 @@ const dbPath = path.join(dbDir, 'rawson-tracker.db');
 console.log('📁 Database path:', dbPath);
 
 const db = new Database(dbPath);
+
+// Enable WAL mode for better performance
+db.pragma('journal_mode = WAL');
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
@@ -167,5 +169,36 @@ defaultActivities.forEach(activity => {
 
 console.log('✅ Database schema created successfully');
 console.log('✅ Default activities inserted');
+
+// Auto-initialize default users if they don't exist
+try {
+    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
+    
+    if (userCount.count === 0) {
+        console.log('📝 No users found - creating default accounts...');
+        
+        // Create office admin account
+        const officeHash = bcrypt.hashSync('Office2024!', 10);
+        db.prepare(`
+            INSERT INTO users (username, email, password_hash, full_name, role)
+            VALUES (?, ?, ?, ?, ?)
+        `).run('marius-office', 'marius@rawsonbedfordview.co.za', officeHash, 'Marius van Tonder - Office', 'admin');
+        
+        // Create personal agent account
+        const personalHash = bcrypt.hashSync('Personal2024!', 10);
+        db.prepare(`
+            INSERT INTO users (username, email, password_hash, full_name, role)
+            VALUES (?, ?, ?, ?, ?)
+        `).run('marius-personal', 'marius.personal@rawsonbedfordview.co.za', personalHash, 'Marius van Tonder - Personal', 'agent');
+        
+        console.log('✅ Default users created:');
+        console.log('   Office: marius-office / Office2024!');
+        console.log('   Personal: marius-personal / Personal2024!');
+    } else {
+        console.log(`✅ Found ${userCount.count} existing user(s)`);
+    }
+} catch (error) {
+    console.error('⚠️  Error initializing users:', error.message);
+}
 
 module.exports = db;
