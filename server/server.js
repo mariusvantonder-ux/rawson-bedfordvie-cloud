@@ -679,26 +679,75 @@ app.post('/do-reset-password', express.json(), (req, res) => {
     try {
         const { username, newPassword } = req.body;
 
+        console.log('Password reset attempt for:', username);
+
         if (!username || !newPassword) {
             return res.status(400).json({ error: 'Username and password required' });
         }
 
         // Check if user exists
         const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+        console.log('User found:', user ? 'Yes' : 'No');
+        
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
         // Hash new password
         const passwordHash = bcrypt.hashSync(newPassword, 10);
+        console.log('New password hash created');
 
         // Update password
-        db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(passwordHash, username);
+        const result = db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(passwordHash, username);
+        console.log('Update result:', result);
 
         res.json({ success: true, message: 'Password updated successfully' });
     } catch (error) {
         console.error('Password reset error:', error);
         res.status(500).json({ error: 'Reset failed: ' + error.message });
+    }
+});
+
+// Emergency password reset - sets default passwords
+app.get('/emergency-reset', (req, res) => {
+    try {
+        // Reset both accounts to known passwords
+        const officeHash = bcrypt.hashSync('Office2024!', 10);
+        const personalHash = bcrypt.hashSync('Personal2024!', 10);
+
+        db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(officeHash, 'marius-office');
+        db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(personalHash, 'marius-personal');
+
+        res.send(`
+            <html>
+            <head><title>Emergency Reset Complete</title></head>
+            <body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px; background: #FFD700;">
+                <div style="background: white; border-radius: 10px; padding: 30px;">
+                    <h2>🔐 Passwords Reset Successfully!</h2>
+                    
+                    <div style="background: #f0f0f0; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h3>🏢 Office Account</h3>
+                        <p><strong>Username:</strong> marius-office</p>
+                        <p><strong>Password:</strong> Office2024!</p>
+                    </div>
+
+                    <div style="background: #f0f0f0; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h3>👤 Personal Account</h3>
+                        <p><strong>Username:</strong> marius-personal</p>
+                        <p><strong>Password:</strong> Personal2024!</p>
+                    </div>
+
+                    <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <strong>⚠️ IMPORTANT:</strong> Write these down! Change them after logging in.
+                    </div>
+
+                    <a href="/" style="display: inline-block; background: #000; color: #FFD700; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 15px;">Go to Login</a>
+                </div>
+            </body>
+            </html>
+        `);
+    } catch (error) {
+        res.status(500).send('Error: ' + error.message);
     }
 });
 
