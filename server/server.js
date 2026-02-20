@@ -742,6 +742,7 @@ app.get('/emergency-reset', (req, res) => {
                     </div>
 
                     <a href="/" style="display: inline-block; background: #000; color: #FFD700; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 15px;">Go to Login</a>
+                    <a href="/test-login" style="display: inline-block; background: #666; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 15px; margin-left: 10px;">Test Login</a>
                 </div>
             </body>
             </html>
@@ -749,6 +750,91 @@ app.get('/emergency-reset', (req, res) => {
     } catch (error) {
         res.status(500).send('Error: ' + error.message);
     }
+});
+
+// Test login page with detailed debugging
+app.get('/test-login', (req, res) => {
+    res.send(`
+        <html>
+        <head><title>Test Login</title></head>
+        <body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;">
+            <h2>🔍 Test Login</h2>
+            <form id="testForm">
+                <div style="margin-bottom: 15px;">
+                    <label>Username:</label><br>
+                    <input type="text" id="username" value="marius-office" style="width: 100%; padding: 8px;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label>Password:</label><br>
+                    <input type="text" id="password" value="Office2024!" style="width: 100%; padding: 8px;">
+                </div>
+                <button type="submit" style="padding: 10px 20px; background: #000; color: #FFD700; border: none; border-radius: 5px; cursor: pointer;">Test Login</button>
+            </form>
+            <div id="result" style="margin-top: 20px; padding: 15px; border-radius: 5px; display: none;"></div>
+            
+            <script>
+                document.getElementById('testForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const resultDiv = document.getElementById('result');
+                    const username = document.getElementById('username').value;
+                    const password = document.getElementById('password').value;
+                    
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = 'Testing...';
+                    
+                    try {
+                        const response = await fetch('/api/auth/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username, password })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            resultDiv.style.background = '#d4edda';
+                            resultDiv.style.color = '#155724';
+                            resultDiv.innerHTML = '✅ LOGIN SUCCESSFUL!<br>' + JSON.stringify(data, null, 2);
+                        } else {
+                            resultDiv.style.background = '#f8d7da';
+                            resultDiv.style.color = '#721c24';
+                            resultDiv.innerHTML = '❌ LOGIN FAILED<br>Status: ' + response.status + '<br>Error: ' + JSON.stringify(data, null, 2);
+                        }
+                    } catch (error) {
+                        resultDiv.style.background = '#f8d7da';
+                        resultDiv.style.color = '#721c24';
+                        resultDiv.innerHTML = '❌ ERROR: ' + error.message;
+                    }
+                });
+            </script>
+        </body>
+        </html>
+    `);
+});
+
+// Debug endpoint to verify password
+app.get('/verify-password', (req, res) => {
+    const testPassword = 'Office2024!';
+    const user = db.prepare('SELECT username, password_hash FROM users WHERE username = ?').get('marius-office');
+    
+    if (!user) {
+        return res.send('User not found');
+    }
+    
+    const isValid = bcrypt.compareSync(testPassword, user.password_hash);
+    
+    res.send(`
+        <html>
+        <body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;">
+            <h2>Password Verification</h2>
+            <p><strong>Username:</strong> ${user.username}</p>
+            <p><strong>Test Password:</strong> Office2024!</p>
+            <p><strong>Hash in DB:</strong> ${user.password_hash.substring(0, 30)}...</p>
+            <p><strong>Valid:</strong> ${isValid ? '✅ YES' : '❌ NO'}</p>
+            ${!isValid ? '<p style="color: red;">The password in the database does not match!</p>' : '<p style="color: green;">Password is correct in database.</p>'}
+        </body>
+        </html>
+    `);
 });
 
 // Serve index.html for root route
