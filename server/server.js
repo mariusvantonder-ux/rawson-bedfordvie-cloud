@@ -322,26 +322,59 @@ app.get('/api/dashboard', authMiddleware, (req, res) => {
         const currentYear = new Date().getFullYear();
         const currentMonth = new Date().getMonth() + 1;
         
+        console.log('Dashboard request for user:', req.user.username, 'role:', req.user.role);
+        
         if (req.user.role === 'agent') {
             // Agent sees only their own data
-            const data = {
-                goals: db.prepare('SELECT * FROM monthly_goals WHERE user_id = ? AND year = ? AND month = ?').all(req.user.id, currentYear, currentMonth),
-                commissionGoal: db.prepare('SELECT * FROM gross_commission_goals WHERE user_id = ? AND year = ?').get(req.user.id, currentYear),
-                totalCommission: db.prepare('SELECT SUM(amount) as total FROM commission_transactions WHERE user_id = ? AND transaction_year = ?').get(req.user.id, currentYear)
-            };
+            console.log('Loading agent dashboard for user ID:', req.user.id);
+            
+            let goals = [];
+            let commissionGoal = null;
+            let totalCommission = { total: 0 };
+            
+            try {
+                goals = db.prepare('SELECT * FROM monthly_goals WHERE user_id = ? AND year = ? AND month = ?').all(req.user.id, currentYear, currentMonth);
+            } catch (err) {
+                console.error('Error loading goals:', err.message);
+            }
+            
+            try {
+                commissionGoal = db.prepare('SELECT * FROM gross_commission_goals WHERE user_id = ? AND year = ?').get(req.user.id, currentYear);
+            } catch (err) {
+                console.error('Error loading commission goal:', err.message);
+            }
+            
+            try {
+                totalCommission = db.prepare('SELECT SUM(amount) as total FROM commission_transactions WHERE user_id = ? AND transaction_year = ?').get(req.user.id, currentYear) || { total: 0 };
+            } catch (err) {
+                console.error('Error loading total commission:', err.message);
+            }
+            
+            const data = { goals, commissionGoal, totalCommission };
+            console.log('Agent dashboard data:', JSON.stringify(data));
             res.json(data);
         } else {
             // Admin/Manager sees office overview
+            console.log('Loading admin dashboard');
             const agents = db.prepare('SELECT id, full_name, username FROM users WHERE role = "agent" AND is_active = 1').all();
-            const officeData = agents.map(agent => ({
-                agent,
-                totalCommission: db.prepare('SELECT SUM(amount) as total FROM commission_transactions WHERE user_id = ? AND transaction_year = ?').get(agent.id, currentYear)
-            }));
+            console.log('Found agents:', agents.length);
+            
+            const officeData = agents.map(agent => {
+                let totalCommission = { total: 0 };
+                try {
+                    totalCommission = db.prepare('SELECT SUM(amount) as total FROM commission_transactions WHERE user_id = ? AND transaction_year = ?').get(agent.id, currentYear) || { total: 0 };
+                } catch (err) {
+                    console.error(`Error loading commission for agent ${agent.id}:`, err.message);
+                }
+                return { agent, totalCommission };
+            });
+            
             res.json({ agents, officeData });
         }
     } catch (error) {
         console.error('Dashboard error:', error);
-        res.status(500).json({ error: 'Failed to load dashboard' });
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ error: 'Failed to load dashboard', details: error.message });
     }
 });
 
