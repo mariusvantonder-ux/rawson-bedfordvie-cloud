@@ -12,6 +12,9 @@ const { authMiddleware, adminOnly, logActivity } = require('./middleware');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy for Render
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet({
     contentSecurityPolicy: false
@@ -356,7 +359,7 @@ app.get('/api/dashboard', authMiddleware, (req, res) => {
         } else {
             // Admin/Manager sees office overview
             console.log('Loading admin dashboard');
-            const agents = db.prepare('SELECT id, full_name, username FROM users WHERE role = "agent" AND is_active = 1').all();
+            const agents = db.prepare("SELECT id, full_name, username FROM users WHERE role = 'agent' AND is_active = 1").all();
             console.log('Found agents:', agents.length);
             
             const officeData = agents.map(agent => {
