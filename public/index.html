@@ -503,25 +503,7 @@
             document.getElementById('loginForm').reset();
         }
 
-        async function loadDashboard() {
-            const content = document.getElementById('mainContent');
-            
-            try {
-                const response = await fetch(`${API_URL}/dashboard`, {
-                    headers: { 'Authorization': `Bearer ${authToken}` }
-                });
-                
-                const data = await response.json();
-                
-                if (currentUser.role === 'agent') {
-                    renderAgentDashboard(data);
-                } else {
-                    renderAdminDashboard(data);
-                }
-            } catch (error) {
-                content.innerHTML = '<div class="card"><p>Error loading dashboard. Please try again.</p></div>';
-            }
-        }
+
 
         function renderAgentDashboard(data) {
             const currentYear = new Date().getFullYear();
